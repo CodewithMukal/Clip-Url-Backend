@@ -1,6 +1,7 @@
 import User from "../models/user.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { sendMail } from "../mailer.js";
 
 export const register = async (req, res) => {
   const { username, email, password } = req.body;
@@ -50,33 +51,29 @@ export const login = async (req, res) => {
       return res.json({ status: "failed", message: "Invalid Password!" });
     }
     let token;
-    if(rememberMe)
-      {
-        token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-          expiresIn: "7d",
-        });
-      }
-    else{
+    if (rememberMe) {
+      token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+        expiresIn: "7d",
+      });
+    } else {
       token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
         expiresIn: "1h",
       });
     }
 
-    if(rememberMe)
-      {
-        res.cookie("token", token, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
-          maxAge: 7 * 24 * 60 * 60 * 1000,
-        });
-      }
-    else{
+    if (rememberMe) {
       res.cookie("token", token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
-        maxAge:  1 * 60 * 60 * 1000,
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      });
+    } else {
+      res.cookie("token", token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+        maxAge: 1 * 60 * 60 * 1000,
       });
     }
 
@@ -166,26 +163,53 @@ export const changePassword = async (req, res) => {
 
 export const forgotPassword = async (req, res) => {
   const { email } = req.body;
+
   if (!email) {
-    res.json({ status: "failed", message: "Email is required" });
+    console.log("❌ No email provided in request.");
+    return res.json({ status: "failed", message: "Email is required" });
   }
+
   try {
+    console.log(`🔍 Looking up user with email: ${email}`);
     const user = await User.findOne({ email });
+
     if (!user) {
+      console.log("❌ No user found with that email.");
       return res.json({ status: "failed", message: "Email not registered" });
-    } else {
-      const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-        expiresIn: "30m",
-      });
-      const link = `http://localhost:8000/api/user/reset-password/${user._id}/${token}`;
-      return res.json({
-        status: "success",
-        message: "Password reset link sent to your email",
-        link: link,
-      });
     }
+
+    console.log(`✅ User found: ${user.username} (${user._id})`);
+
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "15m",
+    });
+
+    const link = `https://clip-url-backend.onrender.com/api/user/reset-password/${user._id}/${token}`;
+    console.log("🔗 Reset Link:", link);
+
+    const html = `
+      <h3>Password Reset Request</h3>
+      <p>Click the link below to reset your password. This link is valid for 15 minutes. If you haven't made this request, ignore this mail.</p>
+      <a href="${link}">${link}</a>
+    `;
+
+    console.log(`📧 Sending email to ${email}...`);
+    const mailSent = await sendMail(email, "Reset Password", html);
+
+    if (!mailSent) {
+      console.log("❌ Failed to send email.");
+      return res.json({ status: "failed", message: "Failed to send email" });
+    }
+
+    console.log("✅ Email sent successfully.");
+    return res.json({
+      status: "success",
+      message: "Password reset link sent to your email",
+    });
+
   } catch (err) {
-    res.json({ status: "failed", message: `Error: ${err.message}` });
+    console.error("❌ Error in forgotPassword:", err.message);
+    return res.json({ status: "failed", message: `Error: ${err.message}` });
   }
 };
 
@@ -194,13 +218,13 @@ export const tokenCheck = async (req, res) => {
   if (!id || !token) {
     res.send({ status: "failed", message: "Invalid Link Please Regenerate" });
   }
-  const user = User.findById(id);
+  const user = await User.findById(id);
   if (!user) {
     res.json({ status: "failed", message: "User doesnt exist" });
   }
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    return res.redirect(`http://localhost:5173/forgot-password/${id}/${token}`);
+    return res.redirect(`https://clipurlx.vercel.app/forgot-password/${id}/${token}`);
   } catch (err) {
     return res.send({ status: "success", verified: false });
   }
