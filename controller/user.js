@@ -43,7 +43,7 @@ export const login = async (req, res) => {
   try {
     
     const user = await User.findOne({ email });
-    
+    console.log("Remember me: ",rememberMe)
 
     if (!user) {
       return res.json({ status: "failed", message: "Invalid Email!" });
@@ -53,11 +53,13 @@ export const login = async (req, res) => {
       return res.json({ status: "failed", message: "Invalid Password!" });
     }
     let token;
-    if (rememberMe) {
+    if (rememberMe=="on") {
+      console.log("longer login")
       token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
         expiresIn: "7d",
       });
     } else {
+      console.log("shorter login")
       token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
         expiresIn: "1h",
       });

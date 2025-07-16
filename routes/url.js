@@ -2,11 +2,13 @@ import express from "express";
 import { nanoid } from "nanoid";
 import User from "../models/user.js";
 import jwt from "jsonwebtoken";
-import { getAllInfo } from "../controller/url.js";
+import { getAllInfo, deleteLink, editLink } from "../controller/url.js";
 
 const urlrouter = express.Router();
 
 urlrouter.post("/allInfo", getAllInfo);
+urlrouter.delete("/:shortID", deleteLink)
+urlrouter.patch("/:shortID", editLink)
 
 urlrouter.post("/", async (req, res) => {
   try {
