@@ -1,6 +1,6 @@
 import User from "../models/user.js";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
+import jwt, { decode } from "jsonwebtoken";
 import { sendMail } from "../mailer.js";
 
 export const register = async (req, res) => {
@@ -31,6 +31,70 @@ export const register = async (req, res) => {
   }
   return res.json({ status: "success" });
 };
+
+export const verification = async (req,res) => {
+  const token = req.cookies.token
+
+  if(!token)
+    {
+      return res.json({status:"failed",message:"user not logged in!"})
+    }
+  try{
+    const decoded = jwt.verify(token, process.env.JWT_SECRET)
+    const user = await User.findById(decoded.id)
+    if(!user)
+      {
+        return res.json({status:"failed",message:"User not found!"})
+      }
+      const email = user.email
+    if(user.isVerified) return res.json({status:"success",message:"user is already verified",email:email})
+    const newtoken = jwt.sign({id: user._id}, process.env.JWT_SECRET, {expiresIn: "1h"})
+
+    const link = `https://clip-url-backend.onrender.com/api/user/verify/${user._id}/${newtoken}`
+    const html = `
+      <h3>Verification Request</h3>
+      <p>In order to verify that this email actually belongs to you please click on the given link. If you haven't requested this email, DO NOT CLICK THIS LINK! It will expire in 1hr.</p>
+      <a href="${link}">${link}</a>
+    `;
+    const mailSent = await sendMail(email, "Verify Email", html);
+    if(mailSent)
+      {
+        return res.json({status:"success",message:"Mail Sent!", email:email})
+      }
+    else {
+      return res.json({status:"failed",message:"Unable to send email"})
+    }
+  }
+  catch(err)
+  {
+    return res.json({status:"failed",message:`Error: ${err}`})
+  }
+}
+
+export const verifyLink = async (req,res) => 
+  {
+    const { id , token } = req.params
+    if(!id || !token)
+      {
+        return res.json({status:"failed",message:"token or id not given"})
+      }
+    try{
+      const decoded = jwt.verify(token,process.env.JWT_SECRET)
+      const user = await User.findById(decoded.id)
+      if(!user)
+        {
+          return res.json({status:"failed",message:"invalid user!"})
+        }
+      if(id !== user._id.toString()) return res.json({status:"failed",message:"ID's not match!"})
+      user.isVerified = true;
+      await user.save();
+      return res.json({status:"success",message:"Verified!"})
+    }
+    catch(err)
+    {
+      return res.json({status:"failed",message:`Error: ${err.message}`})
+    }
+  }
 
 export const login = async (req, res) => {
   const { email, password, rememberMe } = req.body;
