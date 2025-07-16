@@ -15,7 +15,7 @@ connectDB();
 app.use(express.json())
 app.use(express.urlencoded({extended:false}))
 app.use(cookieParser())
-app.use(cors({credentials: true,origin:'https://clipurlx.vercel.app'}))
+app.use(cors({credentials: true,origin:['https://clipurlx.vercel.app','http://localhost:5173']}))
 
 
 app.get("/",(req,res)=>

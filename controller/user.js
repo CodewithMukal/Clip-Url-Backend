@@ -41,7 +41,9 @@ export const login = async (req, res) => {
     });
   }
   try {
+    
     const user = await User.findOne({ email });
+    
 
     if (!user) {
       return res.json({ status: "failed", message: "Invalid Email!" });
