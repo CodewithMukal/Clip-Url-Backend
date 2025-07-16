@@ -88,7 +88,7 @@ export const verifyLink = async (req,res) =>
       if(id !== user._id.toString()) return res.json({status:"failed",message:"ID's not match!"})
       user.isVerified = true;
       await user.save();
-      return res.json({status:"success",message:"Verified!"})
+      return res.send("Verified! Go back to original website now and refresh")
     }
     catch(err)
     {
